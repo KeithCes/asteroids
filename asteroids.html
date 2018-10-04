@@ -1,0 +1,349 @@
+<!--Copyright (c) 2018 * Keith Cestaro
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.-->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+	<canvas height="650" id="ctx" style="border:1px solid #000000;" width="1000"></canvas>
+	<script>
+	var ctx = document.getElementById("ctx").getContext("2d");
+ctx.font = '30px Arial';
+var HEIGHT = 650;
+var WIDTH = 1000;
+var frameCount = 0;
+//player vars
+var player = {
+	x: (WIDTH / 2) - 32,
+	y: (HEIGHT / 2) - 64,
+	width: 32,
+	height: 32,
+	spdX: 5,
+	spdY: 5,
+	healthMax: 100,
+	healthCurrent: 100,
+	pressingDown: false,
+	pressingUp: false,
+	pressingLeft: false,
+	pressingRight: false,
+	pressingSpace: false,
+	fireCooldownCur: 0,
+	fireCooldownMax: 20,
+	score: 0
+}
+player.healthPercent = (player.healthCurrent / player.healthMax) * 100;
+//health bar vars
+var healthBar = {
+	x: 32,
+	y: 32,
+	width: player.healthMax,
+	height: 32,
+}
+var safeZone = {
+	x: (WIDTH / 2) - 128,
+	y: (HEIGHT / 2) - 128,
+	width: WIDTH / 4,
+	height: HEIGHT / 4
+}
+var mouse = {
+	x: 0,
+	y: 0
+}
+var asteroids = [];
+var bullets = [];
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//draws player
+ctx.fillStyle = "#f97e19";
+ctx.fillRect(player.X, player.Y, player.width, player.height);
+//draws health bar
+ctx.fillStyle = "#66FF66";
+ctx.fillRect(healthBar.X, healthBar.Y, player.healthPercent, healthBar.height);
+ctx.rect(healthBar.X, healthBar.Y, healthBar.width, healthBar.height);
+ctx.stroke();
+document.onkeydown = function(event) {
+	if (event.keyCode === 68) //d
+		player.pressingRight = true;
+	else if (event.keyCode === 83) //s
+		player.pressingDown = true;
+	else if (event.keyCode === 65) //a
+		player.pressingLeft = true;
+	else if (event.keyCode === 87) // w
+		player.pressingUp = true;
+	else if (event.keyCode === 32) // w
+		player.pressingSpace = true;
+}
+document.onkeyup = function(event) {
+	if (event.keyCode === 68) //d
+		player.pressingRight = false;
+	else if (event.keyCode === 83) //s
+		player.pressingDown = false;
+	else if (event.keyCode === 65) //a
+		player.pressingLeft = false;
+	else if (event.keyCode === 87) // w
+		player.pressingUp = false;
+	else if (event.keyCode === 32) // w
+		player.pressingSpace = false;
+}
+
+function updatePlayerPosition() {
+	if (player.pressingRight) player.x += player.spdX;
+	if (player.pressingLeft) player.x -= player.spdX;
+	if (player.pressingDown) player.y += player.spdY;
+	if (player.pressingUp) player.y -= player.spdY;
+}
+
+function drawPlayer() {
+	ctx.fillStyle = "#f97e19";
+	ctx.fillRect(player.x, player.y, player.width, player.height);
+}
+
+function checkIfInside(var1, var2) {
+	if ((var1.x < (var2.x + var2.width) && (var1.x + var1.width) > var2.x) && (var1.y < (var2.y + var2.height) && (var1.y + var1.height) > var2.y)) {
+		return true;
+	}
+	return false;
+}
+
+function healthChange() {
+	if (checkIfInside(player, safeZone)) {
+		player.healthCurrent += 0.05;
+	}
+	if (player.healthPercent < 0) {
+		player.healthCurrent = 0;
+	} else if (player.healthCurrent > player.healthMax) {
+		player.healthCurrent = player.healthMax;
+	}
+	ctx.fillStyle = "#66FF66";
+	ctx.fillRect(healthBar.x, healthBar.y, player.healthPercent, healthBar.height);
+	ctx.rect(healthBar.x, healthBar.y, healthBar.width, healthBar.height);
+	ctx.stroke();
+	player.healthPercent = (player.healthCurrent / player.healthMax) * 100;
+}
+/*document.onclick = function()
+{
+
+}*/
+function createAsteroids() {
+	var asteroid = {
+		x: Math.random() * WIDTH,
+		y: Math.random() * HEIGHT,
+		width: 32,
+		height: 32,
+		spdX: (frameCount / 5000) + 1,
+		spdY: (frameCount / 5000) + 1,
+		moveTime: 0,
+		dirRoll: 0,
+		exists: true,
+	}
+	while (checkIfInside(asteroid, safeZone)) {
+		asteroid.x = Math.random() * WIDTH;
+		asteroid.y = Math.random() * HEIGHT;
+	}
+	asteroids.push(asteroid);
+}
+
+function createSafeZone() {
+	ctx.fillStyle = "black";
+	ctx.rect(safeZone.x, safeZone.y, safeZone.width, safeZone.height);
+}
+
+function updateAsteroidPos(asteroids) {
+	for (i = 0; i < asteroids.length; i++) {
+		if (asteroids[i].moveTime > 0) {
+			if (asteroids[i].dirRoll > 3.5) {
+				asteroids[i].x += asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 3) {
+				asteroids[i].x -= asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 2.5) {
+				asteroids[i].y += asteroids[i].spdY;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 2) {
+				asteroids[i].y -= asteroids[i].spdY;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 1.5) {
+				asteroids[i].y -= asteroids[i].spdY;
+				asteroids[i].x += asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 1) {
+				asteroids[i].y += asteroids[i].spdY;
+				asteroids[i].x += asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			} else if (asteroids[i].dirRoll > 0.5) {
+				asteroids[i].y -= asteroids[i].spdY;
+				asteroids[i].x -= asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			} else {
+				asteroids[i].y += asteroids[i].spdY;
+				asteroids[i].x -= asteroids[i].spdX;
+				asteroids[i].moveTime -= 1;
+			}
+		} else {
+			asteroids[i].dirRoll = Math.random() * 4;
+			asteroids[i].moveTime = Math.random() * 1000;
+		}
+	}
+}
+
+function checkAsteroidKilled() {
+	for (i = 0; i < asteroids.length; i++) {
+		for (j = 0; j < bullets.length; j++) {
+			if (checkIfInside(asteroids[i], bullets[j]) && asteroids[i].exists && bullets[j].exists) {
+				asteroids[i].exists = false;
+				bullets[j].exists = false;
+				player.score += 50;
+			}
+		}
+	}
+}
+
+function drawAsteroids(asteroids) {
+	ctx.fillStyle = "black";
+	for (i = 0; i < asteroids.length; i++) {
+		if (asteroids[i].exists) {
+			ctx.fillRect(asteroids[i].x, asteroids[i].y, asteroids[i].width, asteroids[i].height);
+		}
+	}
+}
+
+function fire() {
+	if (player.pressingSpace && player.fireCooldownCur <= 0) {
+		var bullet = {
+			x: 0,
+			y: 0,
+			width: 16,
+			height: 16,
+			spdX: 5,
+			spdY: 5,
+			targetX: 0,
+			targetY: 0,
+			angle: 0,
+			exists: true,
+		}
+		bullet.x = player.x + (player.width / 4);
+		bullet.y = player.y + (player.height / 4);
+		bullet.targetX = mouse.x - bullet.x;
+		bullet.targetY = mouse.y - bullet.y;
+		bullet.angle = Math.atan2(bullet.targetY, bullet.targetX);
+		bullet.spdX = Math.cos(bullet.angle) * 6;
+		bullet.spdY = Math.sin(bullet.angle) * 6;
+		bullets.push(bullet);
+		player.fireCooldownCur = player.fireCooldownMax;
+	} else {
+		player.fireCooldownCur -= 1;
+	}
+}
+
+function updateBulletPos(bullets) {
+	for (i = 0; i < bullets.length; i++) {
+		bullets[i].x += bullets[i].spdX;
+		bullets[i].y += bullets[i].spdY;
+	}
+}
+
+function drawBullets(bullets) {
+	ctx.fillStyle = "gray";
+	for (i = 0; i < bullets.length; i++) {
+		if (bullets[i].exists) {
+			ctx.fillRect(bullets[i].x, bullets[i].y, bullets[i].width, bullets[i].height);
+		}
+	}
+}
+
+function asteroidCollision() {
+	for (i = 0; i < asteroids.length; i++) {
+		if (checkIfInside(asteroids[i], player) && asteroids[i].exists) {
+			asteroids[i].exists = false;
+			player.healthCurrent -= 20;
+		}
+	}
+}
+
+function handler(e) {
+	e = e || window.event;
+	var pageX = e.pageX;
+	var pageY = e.pageY;
+	// IE 8
+	if (pageX === undefined) {
+		pageX = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+		pageY = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+	}
+	mouse.x = pageX;
+	mouse.y = pageY;
+}
+
+function trackMouseCoords() {
+	if (document.attachEvent) document.attachEvent('mousemove', handler);
+	else document.addEventListener('mousemove', handler);
+}
+
+function borderCheck() {
+	if (player.x + player.height > WIDTH) {
+		player.x = WIDTH - player.height;
+	}
+	if (player.x < 0) {
+		player.x = 0;
+	}
+	if (player.y + player.height > HEIGHT) {
+		player.y = HEIGHT - player.height;
+	}
+	if (player.y < 0) {
+		player.y = 0;
+	}
+}
+
+function keepScore() {
+	player.score += 1;
+	ctx.fillStyle = "black";
+	ctx.font = '24px Arial';
+	ctx.fillText("Score: " + Math.floor(player.score), WIDTH - 192, 32);
+}
+
+function update() {
+	if (player.healthCurrent > 0) {
+		ctx.clearRect(0, 0, WIDTH, HEIGHT);
+		createSafeZone();
+		borderCheck();
+		healthChange();
+		updateAsteroidPos(asteroids);
+		drawAsteroids(asteroids);
+		updateBulletPos(bullets);
+		drawBullets(bullets);
+		updatePlayerPosition();
+		drawPlayer();
+		trackMouseCoords();
+		fire();
+		asteroidCollision();
+		checkAsteroidKilled();
+		keepScore();
+		frameCount += 1;
+	} else {
+		ctx.clearRect(0, 0, WIDTH, HEIGHT);
+		ctx.fillStyle = "black";
+		ctx.font = '120px Arial';
+		ctx.fillText("GAME OVER", 96, HEIGHT / 2);
+	}
+}
+setInterval(createAsteroids, 60);
+setInterval(update, 10);
+	</script>
+</body>
+</html>
